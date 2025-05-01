@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desenhador de Círculos</title>
+  <style>
+    :root {
+      --primary-color: #4a6fa5;
+      --secondary-color: #166088;
+      --background-color: #f8f9fa;
+      --text-color: #333;
+      --border-color: #ddd;
+      --button-hover: #11446b;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    
+    h1 {
+      color: var(--secondary-color);
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 30px;
+      width: 100%;
+      max-width: 900px;
+    }
+    
+    #circleForm {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 300px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: var(--secondary-color);
+    }
+    
+    input, select {
+      width: 89%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: var(--button-hover);
+    }
+    
+    #canvas {
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .canvas-container {
+      position: relative;
+    }
+    
+    .canvas-label {
+      position: absolute;
+      top: -25px;
+      left: 0;
+      font-weight: 600;
+      color: var(--secondary-color);
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      #circleForm, #canvas {
+        width: 100%;
+        max-width: 400px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Desenhador de Círculos</h1>
+  
+  <div class="container">
+    <form id="circleForm">
+      <div class="form-group">
+        <label for="x">Posição X:</label>
+        <input type="number" id="x" name="x" required min="0" max="20">
+      </div>
+      
+      <div class="form-group">
+        <label for="y">Posição Y:</label>
+        <input type="number" id="y" name="y" required min="0" max="20">
+      </div>
+      
+      <div class="form-group">
+        <label for="radius">Raio:</label>
+        <input type="number" id="radius" name="radius" required min="1" max="10" step="0.5">
+      </div>
+      
+      <div class="form-group">
+        <label for="apiType">API de Desenho:</label>
+        <select id="apiType" name="apiType">
+          <option value="OpenGL">OpenGL</option>
+          <option value="DirectX">DirectX</option>
+        </select>
+      </div>
+      
+      <button type="submit">Desenhar Círculo</button>
+    </form>
+    
+    <div class="canvas-container">
+      <div class="canvas-label">Visualização:</div>
+      <canvas id="canvas" width="400" height="400"></canvas>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("circleForm").onsubmit = async function(e) {
+      e.preventDefault();
+
+      // Monta o objeto e converte strings em números
+      const formData = new FormData(this);
+      const body = Object.fromEntries(formData.entries());
+      body.x = parseFloat(body.x);
+      body.y = parseFloat(body.y);
+      body.radius = parseFloat(body.radius);
+
+      console.log("🔵 Enviando ao backend:", body);
+
+      let response;
+      try {
+        response = await fetch("/api/draw", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        });
+      } catch (err) {
+        return console.error("❗ Falha no fetch:", err);
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        return console.error("❗ Status não OK:", response.status, text);
+      }
+
+      const data = await response.json();
+      console.log("🟢 Dados recebidos do backend:", data);
+
+      // Desenha no canvas
+      drawOnCanvas(data.x, data.y, data.radius);
+    };
+
+    function drawOnCanvas(x, y, radius) {
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      // Limpa o canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Desenha o grid de referência (20x20)
+      ctx.strokeStyle = "#eee";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 20; i++) {
+        // Linhas verticais
+        ctx.beginPath();
+        ctx.moveTo(i * 20, 0);
+        ctx.lineTo(i * 20, canvas.height);
+        ctx.stroke();
+        
+        // Linhas horizontais
+        ctx.beginPath();
+        ctx.moveTo(0, i * 20);
+        ctx.lineTo(canvas.width, i * 20);
+        ctx.stroke();
+      }
+      
+      // Desenha o círculo
+      ctx.strokeStyle = "#4a6fa5";
+      ctx.fillStyle = "rgba(74, 111, 165, 0.2)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x * 20, y * 20, radius * 20, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fill();
+      
+      // Desenha o ponto central
+      ctx.fillStyle = "#e74c3c";
+      ctx.beginPath();
+      ctx.arc(x * 20, y * 20, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Adiciona rótulos
+      ctx.fillStyle = "#333";
+      ctx.font = "12px Arial";
+      ctx.fillText(`(${x}, ${y})`, x * 20 + 10, y * 20 - 10);
+      ctx.fillText(`Raio: ${radius}`, x * 20 + 10, y * 20 + 10);
+    }
+
+    // Desenha um grid inicial
+    window.onload = function() {
+      drawOnCanvas(10, 10, 5); // Exemplo inicial
+    };
+  </script>
+</body>
+</html>
